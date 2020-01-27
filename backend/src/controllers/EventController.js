@@ -4,7 +4,7 @@ const Player = require('../models/Player')
 
 module.exports = {
     async index(req, res){
-        const events = await Event.find()
+        const events = await Event.find().populate(['players', 'winner'])
 
         return res.json({ data: events})
     },
@@ -12,7 +12,7 @@ module.exports = {
     async show(req, res) {
         const { event_id } = req.headers
 
-        const event = await (await Event.findById(event_id)).populate(['user', 'players', 'winner'])
+        const event = await Event.findById(event_id).populate(['user', 'players', 'winner'])
 
         if(!event){
             return res.status(400).json({ error: 'Event not exists'});
@@ -25,7 +25,7 @@ module.exports = {
         const { event, date, players } = req.body
         const { user_id } = req.headers
 
-        const user =  await User.findById(user_id)
+        let user =  await User.findById(user_id)
         
         if(!user){
             return res.status(400).json({ error: 'User not exists'});
@@ -43,36 +43,45 @@ module.exports = {
             date
         }) 
 
-        await Promisse.all(players.map(async player => {
-            const playersEvent = new Player({ ...player, event: event._id})
-
-            await playersEvent.save()
-            
-            createEvent.players.push(playersEvent)
-        }))
-
-        createEvent.save()
-
-        return res.json({ data: createEvent })
+        return res.status(200).json({ data: createEvent})
     },
 
     async update(req, res) {
-        const { player } =  req.body
-        console.log('req.body', req.body)
+        const { event, date } =  req.body
         const { event_id } = req.headers
-        console.log('event_id', req.headers)
 
-        const event = await Event.findById(event_id)
-        console.log('Event', Event)
-        if(!event){
+        let getEvent = await Event.findById(event_id)
+        
+        if(!getEvent){
             return res.status(400).json({ error: 'event not exists'});
         } 
         
-        let addPlayers = await Event.findByIdAndUpdate( event_id, {$push: {
-            players: player
+        await Event.findByIdAndUpdate( { _id: getEvent._id}, { $set: {
+            event, date
         }}, { new: true })
-        console.log('players', players)
 
-        return res.json({ data : addPlayers })
+        return res.json({ data : await Event.findById(event_id) })
+    },
+
+    async destroy(req, res) {
+        const { event_id } = req.params
+
+        let getEvent = await Event.findById(event_id)
+
+        if(!getEvent){
+            return res.status(400).json({ error: 'Event not exist'})
+        }
+
+        await Event.deleteOne({_id: getEvent._id}, { new: true},
+            function(error, sucess) {
+                if(error) {
+                    res.status(400).json({ error })
+                } else {
+                    res.status(200).json({ sucess})
+                }
+            }
+        )
+
+        return res.status(200).json({ message: 'Event deleted', data:  getEvent })
     }
 }

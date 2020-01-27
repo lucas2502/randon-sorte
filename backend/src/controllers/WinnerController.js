@@ -5,7 +5,7 @@ module.exports = {
     async show(req, res) {
         const { event_id } = req.headers
 
-        const event = await Event.findById(event_id)
+        const event = await Event.findById(event_id).populate('players')
 
         if(!event){
             return res.status(400).json({ error: 'Event not exist'});
@@ -35,7 +35,7 @@ module.exports = {
             winner: playerWinner
         })
 
-        await Event.findOneAndUpdate({ _id: event._id },{ $push: { winner : playerWinner }},  {new: true}, 
+        await Event.findOneAndUpdate({ _id: event._id },{ $set: { winner : playerWinner }},  {new: true}, 
             function (error, success) {
                 if (error) {
                     console.log(error);
@@ -44,6 +44,6 @@ module.exports = {
                 }
             })
         
-        return res.status(200).json({ data: winner })
+        return res.status(200).json({ data: winner.populate(['winner'])})
     }
 }
